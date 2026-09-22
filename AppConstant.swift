@@ -9,5 +9,5 @@ import Foundation
 import UniformTypeIdentifiers
 
 public enum AppConstant {
-    static let supportMediaType: [UTType] = [UTType.mpeg4Movie, UTType.quickTimeMovie]
+    static let supportAssetType: [UTType] = [UTType.mpeg4Movie, UTType.quickTimeMovie, UTType.image]
 }

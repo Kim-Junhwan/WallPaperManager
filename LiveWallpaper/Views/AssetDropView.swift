@@ -1,11 +1,19 @@
 import SwiftUI
 import AVKit
 
+enum DropAssetState {
+    case empty
+    case loading
+    case loaded(WallpaperAsset)
+    case failed(String)
+}
+
 struct AssetDropView: View {
     @State private var videoURL: URL?
     @State private var player: AVPlayer?
     @State var video:WallpaperAsset?
     @State private var showToast = false
+    @State private var state: DropAssetState = .empty
     
     var body: some View {
         ZStack {
@@ -77,7 +85,7 @@ struct AssetDropView: View {
     
     private func selectVideoFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = AppConstant.supportMediaType
+        panel.allowedContentTypes = AppConstant.supportAssetType
         panel.allowsMultipleSelection = false
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
@@ -91,8 +99,6 @@ struct AssetDropView: View {
 struct DropZoneView: View {
     var onDrop: (URL) -> Void
     var onSelect: () -> Void
-    
-    
     
     var body: some View {
         RoundedRectangle(cornerRadius: 10)
@@ -114,23 +120,41 @@ struct DropZoneView: View {
             .onTapGesture {
                 onSelect()
             }
-            .onDrop(of: AppConstant.supportMediaType, isTargeted: nil) { providers in
-                guard let provider = providers.first(where: isSupportMediaType) else {
-                    return false  // Reject non-MP4 files
-                }
-                provider.loadItem(forTypeIdentifier: UTType.movie.identifier, options: nil) { (item, error) in
-                    if let url = item as? URL {
-                        onDrop(url)
-                    }
+            .onDrop(of: AppConstant.supportAssetType, isTargeted: nil) { providers in
+                if let imageProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
+                    dropImage(imageProvider)
+                } else if let videoProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.movie.identifier) }) {
+                    dropVideo(videoProvider)
+                } else {
+                    return false
                 }
                 return true  // Accept the drop
             }
     }
 
-    private func isSupportMediaType(_ item: NSItemProvider) -> Bool {
-        return AppConstant.supportMediaType.contains { item.hasItemConformingToTypeIdentifier($0.identifier) }
+    private func dropImage(_ item: NSItemProvider) {
+        let _ = item.loadFileRepresentation(for: .image) { url, inplace, error in
+            guard error == nil else { print("Image Drop Error: \(String(describing: error))"); return }
+
+            guard let url else { return }
+
+            Task { @MainActor in
+                onDrop(url)
+            }
+        }
     }
 
+    private func dropVideo(_ item: NSItemProvider) {
+        let _ = item.loadFileRepresentation(for: .movie) { url, inplace, error in
+            guard error == nil else { print("Video Drop Error: \(String(describing: error))"); return }
+
+            guard let url else { return }
+
+            Task { @MainActor in
+                onDrop(url)
+            }
+        }
+    }
 }
 
 struct AssetDropView_Previews: PreviewProvider {
