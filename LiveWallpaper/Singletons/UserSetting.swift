@@ -8,9 +8,9 @@ import Foundation
 
 struct WallpaperAsset: Codable, Equatable, Hashable {
     let id:String
-    let url:String
+    let url:URL
     let type:MediaContent
-    let thumbnail:String
+    let thumbnail:URL
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -148,8 +148,8 @@ class UserSetting: ObservableObject, @unchecked Sendable {
         }
         
         do {
-            try FileManager.default.removeItem(atPath: video.url)
-            try FileManager.default.removeItem(atPath: video.thumbnail)
+            try FileManager.default.removeItem(atPath: video.url.path(percentEncoded: false))
+            try FileManager.default.removeItem(atPath: video.thumbnail.path(percentEncoded: false))
         } catch {}
         
     }

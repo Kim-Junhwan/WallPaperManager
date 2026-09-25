@@ -36,12 +36,12 @@ struct RecentVideoView: View {
     var body: some View {
         ZStack {
             
-            ThumbnailImage(path: video.thumbnail)
+            ThumbnailImage(path: video.thumbnail.path(percentEncoded: false))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .contentShape(Rectangle())
             
             if isHovered {
-                let videoURL = constructURL(from: video.url)
+                let videoURL = constructURL(from: video.url.path(percentEncoded: false))
                 
                 InlineVideoPlayer(url: videoURL!)
                     .frame(width: 200, height: 150)

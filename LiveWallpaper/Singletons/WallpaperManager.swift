@@ -112,7 +112,7 @@ class WallpaperManager: ObservableObject, @unchecked Sendable {
     
     /// Sets or updates the wallpaper video URL
     func setWallpaperVideo(video: WallpaperAsset) {
-        guard let url = constructURL(from: video.url) else {return}
+        guard let url = constructURL(from: video.url.path(percentEncoded: false)) else {return}
         
         if !isValidMovieFile(at: url){
             return

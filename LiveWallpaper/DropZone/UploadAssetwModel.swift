@@ -136,9 +136,9 @@ class UploadAssetwModel {
         state = .loaded(
             WallpaperAsset(
                 id: savedAsset.fileName,
-                url: savedAsset.fileUrl.path(percentEncoded: false),
+                url: savedAsset.fileUrl,
                 type: type,
-                thumbnail: thumbUrl.path(percentEncoded: false),
+                thumbnail: thumbUrl,
                 createdAt: Date()
             )
         )
