@@ -291,7 +291,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 1.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baonguyen.LiveWallpaper;
+				PRODUCT_BUNDLE_IDENTIFIER = com.junenaa.LiveWallPaper;
 				PRODUCT_NAME = LiveWallpaper;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -326,7 +326,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 1.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baonguyen.LiveWallpaper;
+				PRODUCT_BUNDLE_IDENTIFIER = com.junenaa.LiveWallPaper;
 				PRODUCT_NAME = LiveWallpaper;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
