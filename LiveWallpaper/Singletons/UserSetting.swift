@@ -20,6 +20,7 @@ struct WallpaperAsset: Codable, Equatable, Hashable {
 
 struct ImageMetaData: Codable, Hashable {
 
+    static let `default` = ImageMetaData()
 }
 
 struct VideoMetaData: Codable, Hashable {

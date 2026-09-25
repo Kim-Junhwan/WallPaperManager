@@ -11,6 +11,7 @@ enum NavItem: String, CaseIterable {
 struct ContentView: View {
     @State private var selectedItem: NavItem = .addAsset
     @State private var sideBarVisible: NavigationSplitViewVisibility = .all
+    @State private var dropViewModel: UploadAssetwModel = .init()
     
     let recent = Recent()
     let ambientSounds = AmbientSounds()
@@ -43,7 +44,7 @@ struct ContentView: View {
     var selectedView: some View {
         switch selectedItem {
         case .addAsset:
-            AssetDropView()
+            AssetDropView(dropViewModel: dropViewModel)
         case .recent:
             recent
         case .ambientMixer:

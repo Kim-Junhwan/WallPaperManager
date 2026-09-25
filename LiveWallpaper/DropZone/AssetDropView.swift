@@ -1,28 +1,21 @@
 import SwiftUI
 import AVKit
 
-enum DropAssetState {
-    case empty
-    case loading
-    case loaded(WallpaperAsset)
-    case failed(String)
-}
-
 struct AssetDropView: View {
     @State private var videoURL: URL?
     @State private var player: AVPlayer?
     @State var video:WallpaperAsset?
     @State private var showToast = false
-    @State private var state: DropAssetState = .empty
+    let dropViewModel: UploadAssetwModel
     
     var body: some View {
         ZStack {
             
             if player == nil {
-                DropZoneView(onDrop: { url in
-                    loadVideo(from: url)
+                DropZoneView(onDrop: { providers in
+                    return dropViewModel.uploadAsset(providers)
                 }, onSelect: {
-                    selectVideoFile()
+                    selectAssetFile()
                 })
             } else {
                 VStack {
@@ -83,7 +76,7 @@ struct AssetDropView: View {
         
     }
     
-    private func selectVideoFile() {
+    private func selectAssetFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = AppConstant.supportAssetType
         panel.allowsMultipleSelection = false
@@ -97,7 +90,7 @@ struct AssetDropView: View {
 }
 
 struct DropZoneView: View {
-    var onDrop: (URL) -> Void
+    var onDrop: ([NSItemProvider]) -> Bool
     var onSelect: () -> Void
     
     var body: some View {
@@ -121,44 +114,13 @@ struct DropZoneView: View {
                 onSelect()
             }
             .onDrop(of: AppConstant.supportAssetType, isTargeted: nil) { providers in
-                if let imageProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
-                    dropImage(imageProvider)
-                } else if let videoProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.movie.identifier) }) {
-                    dropVideo(videoProvider)
-                } else {
-                    return false
-                }
-                return true  // Accept the drop
+                return onDrop(providers)
             }
-    }
-
-    private func dropImage(_ item: NSItemProvider) {
-        let _ = item.loadFileRepresentation(for: .image) { url, inplace, error in
-            guard error == nil else { print("Image Drop Error: \(String(describing: error))"); return }
-
-            guard let url else { return }
-
-            Task { @MainActor in
-                onDrop(url)
-            }
-        }
-    }
-
-    private func dropVideo(_ item: NSItemProvider) {
-        let _ = item.loadFileRepresentation(for: .movie) { url, inplace, error in
-            guard error == nil else { print("Video Drop Error: \(String(describing: error))"); return }
-
-            guard let url else { return }
-
-            Task { @MainActor in
-                onDrop(url)
-            }
-        }
     }
 }
 
 struct AssetDropView_Previews: PreviewProvider {
     static var previews: some View {
-        AssetDropView(video: nil)
+        AssetDropView(video: nil, dropViewModel: .init())
     }
 }
