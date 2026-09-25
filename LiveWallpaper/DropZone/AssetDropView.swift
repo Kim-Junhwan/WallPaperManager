@@ -56,26 +56,6 @@ struct AssetDropView: View {
         }
     }
     
-    private func loadVideo(from url: URL) {
-        videoURL = url
-        player = AVPlayer(url: url)
-        player?.play()
-        
-        let id = UUID().uuidString
-        
-        Task {
-            do {
-                let copiedFileURL = try await copyFile(fileURL: url, targetFilename: id)
-                guard let thumbnailPath = await generateThumbnailAndSave(from: copiedFileURL.path(percentEncoded: false), fileName: "\(id).png") else {return}
-                let attrs = await analyzeVideoCharacteristics(url: url) ?? .default
-                video = WallpaperAsset(id: id, url: copiedFileURL.path(percentEncoded: false), type: .video(attrs), thumbnail: thumbnailPath, createdAt: Date())
-            } catch {
-                print("Error copying file: \(error)")
-            }
-        }
-        
-    }
-    
     private func selectAssetFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = AppConstant.supportAssetType
@@ -84,7 +64,7 @@ struct AssetDropView: View {
         panel.canChooseDirectories = false
         
         if panel.runModal() == .OK, let url = panel.urls.first {
-            loadVideo(from: url)
+            dropViewModel.uploadAsset(url)
         }
     }
 }

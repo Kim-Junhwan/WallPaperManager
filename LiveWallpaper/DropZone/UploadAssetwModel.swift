@@ -31,7 +31,7 @@ class UploadAssetwModel {
         for provider in providers {
             for supportType in AppConstant.supportAssetType {
                 if provider.hasItemConformingToTypeIdentifier(supportType.identifier) {
-                    uploadAssetAtFileSystem(provider: provider, supportType: supportType)
+                    uploadAsset(from: provider, supportType: supportType)
                     return true
                 }
             }
@@ -39,55 +39,109 @@ class UploadAssetwModel {
         return false
     }
 
-    private func uploadAssetAtFileSystem(provider: NSItemProvider, supportType: UTType) {
+    func uploadAsset(_ url: URL) {
+        guard let contentType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType,
+              let supportType = AppConstant.supportAssetType.first(where: { contentType.conforms(to: $0) }) else {
+            return
+        }
+
+        state = .loading
         Task {
             do {
-                state = .loading
-                let type: MediaContent
-                let (saveAssetURL, fileName) = try await copyAndSaveAsset(provider, type: supportType)
-                let thumbUrl: URL
-                if AppConstant.supportMovieType.contains(supportType) {
-                    thumbUrl = try await generateMovieThumbnail(movieUrl: saveAssetURL, fileName: fileName)
-                    type = .video(.default)
-                } else {
-                    thumbUrl = try generateImageThumbnail(imageUrl: saveAssetURL, fileName: fileName)
-                    type = .image(.default)
-                }
-                state = .loaded(
-                    WallpaperAsset(id: fileName, url: saveAssetURL.path(percentEncoded: false), type: type, thumbnail: thumbUrl.path(percentEncoded: false), createdAt: Date())
-                )
+                let savedAsset = try await Task.detached(priority: .userInitiated) {
+                    try Self.copyAndSaveAsset(url)
+                }.value
+                try await finishUploading(savedAsset, supportType: supportType)
             } catch {
-
+                state = .empty
             }
         }
     }
 
-    private func copyAndSaveAsset(_ provider: NSItemProvider, type: UTType) async throws -> (fileUrl: URL, fileName: String) {
-        return try await withCheckedThrowingContinuation { continuation in
-            let _ = provider.loadFileRepresentation(for: type) { fileUrl, _, error in
-                guard let fileUrl, error == nil else { return }
-                let fileManager = FileManager.default
-                let supportPath = getAppSupportDirectory()
-                do {
-                    let fileName = UUID().uuidString
-                    let contentType = try fileUrl.resourceValues(forKeys: [.contentTypeKey]).contentType
-                    var destinationURL = supportPath.appendingPathComponent(fileName)
-                    if let contentType {
-                        destinationURL.appendPathExtension(for: contentType)
-                    }
+    private func uploadAsset(from provider: NSItemProvider, supportType: UTType) {
+        state = .loading
 
-                    if fileManager.fileExists(atPath: destinationURL.path(percentEncoded: false)) {
-                        try fileManager.removeItem(at: destinationURL)
-                    }
-                    try fileManager.copyItem(at: fileUrl, to: destinationURL)
-                    continuation.resume(returning: (destinationURL, fileName))
-                } catch {
-                    continuation.resume(throwing: error)
+        _ = provider.loadFileRepresentation(for: supportType) { [weak self] fileURL, _, error in
+            guard error == nil, let fileURL else {
+                Task { @MainActor [weak self] in
+                    self?.state = .empty
                 }
+                return
+            }
 
+            do {
+                // The provider may remove this temporary file when the callback returns.
+                let savedAsset = try Self.copyAndSaveAsset(fileURL)
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await finishUploading(savedAsset, supportType: supportType)
+                    } catch {
+                        state = .empty
+                    }
+                }
+            } catch {
+                Task { @MainActor [weak self] in
+                    self?.state = .empty
+                }
+            }
+        }
+    }
+
+    private nonisolated static func copyAndSaveAsset(_ url: URL) throws -> (fileUrl: URL, fileName: String) {
+        let didAccessSecurityScopedResource = url.startAccessingSecurityScopedResource()
+        defer {
+            if didAccessSecurityScopedResource {
+                url.stopAccessingSecurityScopedResource()
             }
         }
 
+        let fileManager = FileManager.default
+        let supportPath = getAppSupportDirectory()
+        let fileName = UUID().uuidString
+        let contentType = try url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        var destinationURL = supportPath.appendingPathComponent(fileName)
+        if let contentType {
+            destinationURL.appendPathExtension(for: contentType)
+        }
+
+        if fileManager.fileExists(atPath: destinationURL.path(percentEncoded: false)) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        try fileManager.copyItem(at: url, to: destinationURL)
+        return (destinationURL, fileName)
+    }
+
+    private func finishUploading(
+        _ savedAsset: (fileUrl: URL, fileName: String),
+        supportType: UTType
+    ) async throws {
+        let type: MediaContent
+        let thumbUrl: URL
+
+        if AppConstant.supportMovieType.contains(supportType) {
+            thumbUrl = try await generateMovieThumbnail(
+                movieUrl: savedAsset.fileUrl,
+                fileName: savedAsset.fileName
+            )
+            type = .video(.default)
+        } else {
+            thumbUrl = try generateImageThumbnail(
+                imageUrl: savedAsset.fileUrl,
+                fileName: savedAsset.fileName
+            )
+            type = .image(.default)
+        }
+
+        state = .loaded(
+            WallpaperAsset(
+                id: savedAsset.fileName,
+                url: savedAsset.fileUrl.path(percentEncoded: false),
+                type: type,
+                thumbnail: thumbUrl.path(percentEncoded: false),
+                createdAt: Date()
+            )
+        )
     }
 
     private func generateMovieThumbnail(movieUrl: URL, fileName: String) async throws -> URL {
