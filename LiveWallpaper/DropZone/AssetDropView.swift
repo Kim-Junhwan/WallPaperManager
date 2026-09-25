@@ -6,47 +6,78 @@ struct AssetDropView: View {
     @State private var player: AVPlayer?
     @State var video:WallpaperAsset?
     @State private var showToast = false
-    let dropViewModel: UploadAssetwModel
-    
+    let uploadViewModel: UploadAssetwModel
+
     var body: some View {
-        ZStack {
-            
-            if player == nil {
-                DropZoneView(onDrop: { providers in
-                    return dropViewModel.uploadAsset(providers)
-                }, onSelect: {
-                    selectAssetFile()
-                })
-            } else {
-                VStack {
-                    VideoPlayer(player: player)
-                        .frame(height: 300)
-                        .cornerRadius(10)
-                        .padding()
-                    
-                    Button("Set as Wallpaper", action: {
-                        player?.pause()
-                        WallpaperManager.shared.setWallpaperVideo(video: video!)
-                        UserSetting.shared.setVideo(video!)
-                        video = nil
-                        player = nil
-                        toast()
-                    })
-                    .opacity(video != nil ? 1.0 : 0.0)
-                    .buttonStyle(.borderedProminent)
-                    .padding()
-                    
-                }
+        contentView
+        .overlay {
+            if uploadViewModel.isUploading {
+                ProgressView()
+                    .controlSize(.large)
             }
-            
+        }
+        .overlay {
             if showToast {
                 Toast(systemImage: "checkmark.circle.fill", message: "Wallpaper Set", isVisible: $showToast)
             }
         }
-        .frame(minWidth: 500, minHeight: 400)
-        
+
     }
-    
+
+    @ViewBuilder
+    var contentView: some View {
+        switch uploadViewModel.state {
+        case .empty:
+            dropZoneView
+        case .loaded(let wallpaperAsset):
+            VStack {
+                switch wallpaperAsset.type {
+                case .image(let imageData):
+                    if let image = NSImage(contentsOf: wallpaperAsset.thumbnail) {
+                        Image(nsImage: image)
+                    } else {
+                        Image(systemName: "photo")
+                    }
+                case .video(_):
+                    videoPlayerView
+                }
+                setWallPaperButton
+            }
+        }
+    }
+
+    var dropZoneView: some View {
+        DropZoneView(onDrop: { providers in
+            return uploadViewModel.uploadAsset(providers)
+        }, onSelect: {
+            selectAssetFile()
+        })
+    }
+
+    var setWallPaperButton: some View {
+        Button("Set as Wallpaper", action: {
+            WallpaperManager.shared.setWallpaperVideo(video: video!)
+            UserSetting.shared.setVideo(video!)
+            video = nil
+            player = nil
+            toast()
+        })
+        .opacity(video != nil ? 1.0 : 0.0)
+        .buttonStyle(.borderedProminent)
+        .padding()
+    }
+
+    var videoPlayerView: some View {
+        VStack {
+            VideoPlayer(player: player)
+                .frame(height: 300)
+                .cornerRadius(10)
+                .padding()
+
+
+        }
+    }
+
     private func toast() {
         showToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -55,16 +86,16 @@ struct AssetDropView: View {
             }
         }
     }
-    
+
     private func selectAssetFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = AppConstant.supportAssetType
         panel.allowsMultipleSelection = false
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
-        
+
         if panel.runModal() == .OK, let url = panel.urls.first {
-            dropViewModel.uploadAsset(url)
+            uploadViewModel.uploadAsset(url)
         }
     }
 }
@@ -72,7 +103,7 @@ struct AssetDropView: View {
 struct DropZoneView: View {
     var onDrop: ([NSItemProvider]) -> Bool
     var onSelect: () -> Void
-    
+
     var body: some View {
         RoundedRectangle(cornerRadius: 10)
             .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [5]))
@@ -101,6 +132,6 @@ struct DropZoneView: View {
 
 struct AssetDropView_Previews: PreviewProvider {
     static var previews: some View {
-        AssetDropView(video: nil, dropViewModel: .init())
+        AssetDropView(video: nil, uploadViewModel: .init())
     }
 }

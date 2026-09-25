@@ -12,7 +12,6 @@ import AppKit
 
 enum UploadAssetState {
     case empty
-    case loading
     case loaded(WallpaperAsset)
 }
 
@@ -26,6 +25,7 @@ enum AssetUploadError: Error {
 class UploadAssetwModel {
 
     var state: UploadAssetState = .empty
+    var isUploading: Bool = false
 
     func uploadAsset(_ providers: [NSItemProvider]) -> Bool {
         for provider in providers {
@@ -45,7 +45,7 @@ class UploadAssetwModel {
             return
         }
 
-        state = .loading
+        isUploading = true
         Task {
             do {
                 let savedAsset = try await Task.detached(priority: .userInitiated) {
@@ -53,13 +53,13 @@ class UploadAssetwModel {
                 }.value
                 try await finishUploading(savedAsset, supportType: supportType)
             } catch {
-                state = .empty
+                isUploading = false
             }
         }
     }
 
     private func uploadAsset(from provider: NSItemProvider, supportType: UTType) {
-        state = .loading
+        isUploading = true
 
         _ = provider.loadFileRepresentation(for: supportType) { [weak self] fileURL, _, error in
             guard error == nil, let fileURL else {
@@ -77,12 +77,12 @@ class UploadAssetwModel {
                     do {
                         try await finishUploading(savedAsset, supportType: supportType)
                     } catch {
-                        state = .empty
+                        isUploading = false
                     }
                 }
             } catch {
                 Task { @MainActor [weak self] in
-                    self?.state = .empty
+                    self?.isUploading = false
                 }
             }
         }
@@ -133,6 +133,7 @@ class UploadAssetwModel {
             type = .image(.default)
         }
 
+        isUploading = false
         state = .loaded(
             WallpaperAsset(
                 id: savedAsset.fileName,

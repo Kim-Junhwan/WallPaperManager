@@ -44,7 +44,7 @@ struct ContentView: View {
     var selectedView: some View {
         switch selectedItem {
         case .addAsset:
-            AssetDropView(dropViewModel: dropViewModel)
+            AssetDropView(uploadViewModel: dropViewModel)
         case .recent:
             recent
         case .ambientMixer:
