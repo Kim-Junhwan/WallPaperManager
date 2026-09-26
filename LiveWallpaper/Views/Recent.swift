@@ -53,7 +53,7 @@ struct Recent: View {
                                         .stroke(borderColor, lineWidth: 4)
                                 }
                                 .onTapGesture {
-                                    WallpaperManager.shared.setWallpaperVideo(video: video)
+                                    WallpaperManager.shared.setWallpaper(asset: video)
                                     userSetting.setVideo(video)
                                 }
                         }

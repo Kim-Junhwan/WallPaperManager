@@ -41,9 +41,8 @@ struct RecentVideoView: View {
                         .contentShape(Rectangle())
             
             if isHovered {
-                let videoURL = constructURL(from: video.url.path(percentEncoded: false))
                 
-                InlineVideoPlayer(url: videoURL!)
+                InlineVideoPlayer(url: video.url)
                     .frame(width: 200, height: 150)
                     .clipped()
             }

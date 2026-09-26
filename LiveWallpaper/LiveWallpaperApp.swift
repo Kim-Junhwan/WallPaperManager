@@ -35,7 +35,7 @@ struct LiveWallpaperApp: App {
     func runOnLaunch(){
         print("applaunch \(userSetting.video)")
         guard let video = userSetting.video else { return }
-        WallpaperManager.shared.setWallpaperVideo(video: video)
+        WallpaperManager.shared.setWallpaper(asset: video)
         
     }
     

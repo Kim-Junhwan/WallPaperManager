@@ -4,7 +4,6 @@ import AVKit
 struct AssetDropView: View {
     @State private var videoURL: URL?
     @State private var player: AVPlayer?
-    @State var video:WallpaperAsset?
     @State private var showToast = false
     let uploadViewModel: UploadAssetwModel
 
@@ -41,7 +40,7 @@ struct AssetDropView: View {
                 case .video(_):
                     videoPlayerView
                 }
-                setWallPaperButton
+                setWallPaperButton(wallpaperAsset)
             }
         }
     }
@@ -54,15 +53,13 @@ struct AssetDropView: View {
         })
     }
 
-    var setWallPaperButton: some View {
+    func setWallPaperButton(_ asset: WallpaperAsset) -> some View {
         Button("Set as Wallpaper", action: {
-            WallpaperManager.shared.setWallpaperVideo(video: video!)
-            UserSetting.shared.setVideo(video!)
-            video = nil
+            WallpaperManager.shared.setWallpaper(asset: asset)
+            UserSetting.shared.setVideo(asset)
             player = nil
             toast()
         })
-        .opacity(video != nil ? 1.0 : 0.0)
         .buttonStyle(.borderedProminent)
         .padding()
     }
@@ -132,6 +129,6 @@ struct DropZoneView: View {
 
 struct AssetDropView_Previews: PreviewProvider {
     static var previews: some View {
-        AssetDropView(video: nil, uploadViewModel: .init())
+        AssetDropView(uploadViewModel: .init())
     }
 }

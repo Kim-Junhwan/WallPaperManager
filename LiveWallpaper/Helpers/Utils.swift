@@ -55,19 +55,6 @@ func recreateAppDataFolder() throws {
     }
 }
 
-func constructURL(from path: String) -> URL? {
-    if path.hasPrefix("http://") || path.hasPrefix("https://") {
-        // Case 1: Already a valid web URL
-        return URL(string: path)
-    } else if path.hasPrefix("file:/") {
-        // Case 2: Already a "file://" URL
-        return URL(string: path)
-    } else {
-        // Case 3: Local file path, construct a file URL
-        return URL(fileURLWithPath: path)
-    }
-}
-
 func appDisplayName() -> String {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? ""
 }
@@ -164,69 +151,6 @@ func copyFile(fileURL: URL, targetFilename: String) async throws -> URL {
         }
     }
 }
-
-func generateThumbnailAndSave(from videoPath: String, fileName: String) async -> String? {
-    guard let videoURL = constructURL(from: videoPath) else {
-//        print("❌ Error: Invalid video URL")
-        return nil
-    }
-    
-    // Check if the video file exists
-    let fileManager = FileManager.default
-    guard fileManager.fileExists(atPath: videoURL.path) else {
-//        print("❌ Error: Video file does not exist at path: \(videoURL.path)")
-        return nil
-    }
-    
-//    print("✅ Video file exists at path: \(videoURL.path)")
-    
-    let asset = AVURLAsset(url: videoURL)
-    let imageGenerator = AVAssetImageGenerator(asset: asset)
-    imageGenerator.appliesPreferredTrackTransform = true
-    imageGenerator.maximumSize = CGSize(width: 600, height: 450)
-    
-    imageGenerator.requestedTimeToleranceBefore = .positiveInfinity
-    imageGenerator.requestedTimeToleranceAfter = .positiveInfinity
-    
-    do {
-        // Get video duration
-        let duration = try await asset.load(.duration)
-        let durationSeconds = CMTimeGetSeconds(duration)
-        
-        // For videos shorter than 3 seconds, use the middle; otherwise, use 1/3
-        let targetTimeSeconds = durationSeconds < 3.0 ? durationSeconds / 2.0 : durationSeconds / 3.0
-        let targetTime = CMTime(seconds: max(0, targetTimeSeconds), preferredTimescale: 600)
-        
-        let cgImage = try await imageGenerator.image(at: targetTime).image
-        let thumbnail = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        
-        guard let imageData = thumbnail.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: imageData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
-//            print("❌ Error: Failed to convert image to PNG")
-            return nil
-        }
-        
-        let sanitizedFileName = fileName.hasSuffix(".png") ? fileName : fileName + ".png"
-        let thumbnailURL = getAppSupportDirectory().appendingPathComponent(sanitizedFileName)
-        
-//        print("📂 Saving thumbnail to: \(thumbnailURL.path)")
-        
-        if fileManager.fileExists(atPath: thumbnailURL.path) {
-//            print("⚠️ File already exists, overwriting: \(thumbnailURL.path)")
-            try fileManager.removeItem(at: thumbnailURL)
-        }
-        
-        try pngData.write(to: thumbnailURL, options: .atomic)
-//        print("✅ Thumbnail successfully saved at \(thumbnailURL.path)")
-        return thumbnailURL.path
-    } catch {
-//        print("❌ Thumbnail generation failed: \(error.localizedDescription)")
-        return nil
-    }
-}
-
-
 
 func fileExists(at url: URL) -> Bool {
     return FileManager.default.fileExists(atPath: url.path)

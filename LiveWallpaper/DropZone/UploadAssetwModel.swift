@@ -204,4 +204,8 @@ class UploadAssetwModel {
 
         return destinationUrl
     }
+
+    func setWallpaper(asset: WallpaperAsset) {
+
+    }
 }

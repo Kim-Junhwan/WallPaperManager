@@ -111,38 +111,35 @@ class WallpaperManager: ObservableObject, @unchecked Sendable {
     }
     
     /// Sets or updates the wallpaper video URL
-    func setWallpaperVideo(video: WallpaperAsset) {
-        guard let url = constructURL(from: video.url.path(percentEncoded: false)) else {return}
-        
-        if !isValidMovieFile(at: url){
-            return
-        }
-        
-        focusPauseWorkItem?.cancel()
-        focusPauseWorkItem = nil
-        didAutoPaused = false
-        didFocusPaused = false
-        for track in player?.currentItem?.tracks ?? [] {
-            removeSnapshot()
-            track.isEnabled = true
-        }
-        
-        if window == nil {
-            createWallpaperWindow()
-        }
-        
-        let playerItem = AVPlayerItem(url: url)
-        
-        looper?.disableLooping()
-        looper = nil
-        player?.removeAllItems()
-        player = AVQueuePlayer()
-        looper = AVPlayerLooper(player: player!, templateItem: playerItem)
-        
-        let playerView = CustomPlayerView(player: player!, video: video)
-        animateContentViewTransition(newContentView: playerView)
-        
-        player!.play()
+    func setWallpaper(asset: WallpaperAsset) {
+//        if !isValidMovieFile(at: ){
+//            return
+//        }
+//
+//        focusPauseWorkItem?.cancel()
+//        focusPauseWorkItem = nil
+//        didAutoPaused = false
+//        didFocusPaused = false
+//        for track in player?.currentItem?.tracks ?? [] {
+//            removeSnapshot()
+//            track.isEnabled = true
+//        }
+//
+//        if window == nil {
+//            createWallpaperWindow()
+//        }
+//
+//        let playerItem = AVPlayerItem(url: url)
+//
+//        looper?.disableLooping()
+//        looper = nil
+//        player?.removeAllItems()
+//        player = AVQueuePlayer()
+//        looper = AVPlayerLooper(player: player!, templateItem: playerItem)
+//
+//        let playerView = CustomPlayerView(player: player!, video: video)
+//        animateContentViewTransition(newContentView: playerView)
+//
     }
     
 
@@ -381,4 +378,3 @@ class NSImageViewFill : NSImageView {
             }
         }
 }
-
