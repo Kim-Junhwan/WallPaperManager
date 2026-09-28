@@ -1,0 +1,4 @@
+interface:
+  display_name: "LiveWallpaper Design"
+  short_description: "Apply the project macOS design guidelines"
+  default_prompt: "Use $live-wallpaper-design to design or modify this user-facing UI."
