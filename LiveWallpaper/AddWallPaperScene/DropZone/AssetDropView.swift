@@ -5,10 +5,10 @@ struct AssetDropView: View {
     @State private var videoURL: URL?
     @State private var player: AVPlayer?
     @State private var showToast = false
-    let uploadViewModel: UploadAssetwModel
+    let uploadViewModel: UploadAssetViewModel
 
     var body: some View {
-        contentView
+        dropZoneView
         .overlay {
             if uploadViewModel.isUploading {
                 ProgressView()
@@ -21,28 +21,6 @@ struct AssetDropView: View {
             }
         }
 
-    }
-
-    @ViewBuilder
-    var contentView: some View {
-        switch uploadViewModel.state {
-        case .empty:
-            dropZoneView
-        case .loaded(let wallpaperAsset):
-            VStack {
-                switch wallpaperAsset.type {
-                case .image(let imageData):
-                    if let image = NSImage(contentsOf: wallpaperAsset.thumbnail) {
-                        Image(nsImage: image)
-                    } else {
-                        Image(systemName: "photo")
-                    }
-                case .video(_):
-                    videoPlayerView
-                }
-                setWallPaperButton(wallpaperAsset)
-            }
-        }
     }
 
     var dropZoneView: some View {
@@ -129,6 +107,6 @@ struct DropZoneView: View {
 
 struct AssetDropView_Previews: PreviewProvider {
     static var previews: some View {
-        AssetDropView(uploadViewModel: .init())
+        AssetDropView(uploadViewModel: .init(successUploadAsset: { _ in }))
     }
 }

@@ -1,8 +1,8 @@
 //
-//  DropViewModel.swift
+//  UploadAssetViewModel.swift
 //  LiveWallpaper
 //
-//  Created by Kimjunhwan on 9/22/26.
+//  Created by Kimjunhwan on 9/27/26.
 //
 
 import Foundation
@@ -10,23 +10,17 @@ import UniformTypeIdentifiers
 import AVFoundation
 import AppKit
 
-enum UploadAssetState {
-    case empty
-    case loaded(WallpaperAsset)
-}
-
-enum AssetUploadError: Error {
-    case notFoundFile
-    case failedGenerateThumbnail
-}
-
-@MainActor
 @Observable
-class UploadAssetwModel {
-
-    var state: UploadAssetState = .empty
+@MainActor
+final class UploadAssetViewModel {
+    
+    let successUploadAsset: (WallpaperAsset) -> Void
     var isUploading: Bool = false
-
+    
+    init(successUploadAsset: @escaping (WallpaperAsset) -> Void) {
+        self.successUploadAsset = successUploadAsset
+    }
+    
     func uploadAsset(_ providers: [NSItemProvider]) -> Bool {
         for provider in providers {
             for supportType in AppConstant.supportAssetType {
@@ -63,9 +57,6 @@ class UploadAssetwModel {
 
         _ = provider.loadFileRepresentation(for: supportType) { [weak self] fileURL, _, error in
             guard error == nil, let fileURL else {
-                Task { @MainActor [weak self] in
-                    self?.state = .empty
-                }
                 return
             }
 
@@ -134,15 +125,15 @@ class UploadAssetwModel {
         }
 
         isUploading = false
-        state = .loaded(
-            WallpaperAsset(
-                id: savedAsset.fileName,
-                url: savedAsset.fileUrl,
-                type: type,
-                thumbnail: thumbUrl,
-                createdAt: Date()
-            )
+        let asset = WallpaperAsset(
+            id: savedAsset.fileName,
+            url: savedAsset.fileUrl,
+            type: type,
+            thumbnail: thumbUrl,
+            createdAt: Date()
         )
+        
+        successUploadAsset(asset)
     }
 
     private func generateMovieThumbnail(movieUrl: URL, fileName: String) async throws -> URL {
@@ -203,9 +194,5 @@ class UploadAssetwModel {
         try pngData.write(to: destinationUrl, options: .atomic)
 
         return destinationUrl
-    }
-
-    func setWallpaper(asset: WallpaperAsset) {
-
     }
 }
