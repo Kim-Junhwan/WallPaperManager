@@ -8,29 +8,15 @@
 import SwiftUI
 
 struct EditorView: View {
-    let asset: WallpaperAsset
-    @State var wallpaperName: String = "Untitled"
+    @State var viewModel: EditorViewModel
     
-    var body: some View {
-        VStack(alignment: .leading) {
-            TextField("Wallpaper Name", text: $wallpaperName)
-                .frame(width: 300)
-        }
-        .padding(.horizontal, 32)
-        .padding(.vertical, 20)
+    init(viewModel: EditorViewModel) {
+        self.viewModel = viewModel
     }
     
-//    var typeBadge: some View {
-//        let text = switch asset.type {
-//        case .image(_):
-//            "Image"
-//        case .video(_):
-//            "Video"
-//        }
-//        
-//        Text(text)
-//            .
-//    }
+    var body: some View {
+        Text("hello ")
+    }
 }
 
 #Preview("Image Editor") {
@@ -41,13 +27,13 @@ struct EditorView: View {
         .appendingPathComponent("Assets.xcassets/AppIcon.appiconset/512.png")
 
     EditorView(
-        asset: WallpaperAsset(
+        viewModel: .init(asset: WallpaperAsset(
             id: "editor-preview-image",
             url: previewImageURL,
             type: .image(.default),
             thumbnail: previewImageURL,
             createdAt: .now
-        )
+        ))
     )
     .frame(width: 960, height: 640)
 }

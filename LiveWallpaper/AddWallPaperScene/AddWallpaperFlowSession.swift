@@ -13,7 +13,7 @@ import AppKit
 enum UploadAssetState {
     case idle
     case empty(UploadAssetViewModel)
-    case editor(asset: WallpaperAsset)
+    case editor(EditorViewModel)
 }
 
 enum AssetUploadError: Error {
@@ -26,14 +26,11 @@ enum AssetUploadError: Error {
 class AddWallpaperFlowSession {
 
     var state: UploadAssetState = .idle
-    
+
+
     init() {
         state = .empty(UploadAssetViewModel(successUploadAsset: { asset in
-            self.state = .editor(asset: asset)
+            self.state = .editor(.init(asset: asset))
         }))
-    }
-    
-    func updateState(asset: WallpaperAsset) {
-        
     }
 }

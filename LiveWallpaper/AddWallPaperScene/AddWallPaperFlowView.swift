@@ -15,8 +15,8 @@ struct AddWallPaperFlowView: View {
         switch addSession.state {
         case .empty(let uploadViewModel):
             AssetDropView(uploadViewModel: uploadViewModel)
-        case .editor(let asset):
-            EditorView(asset: asset)
+        case .editor(let editorViewModel):
+            EditorView(viewModel: editorViewModel)
         case .idle:
             EmptyView()
         }
