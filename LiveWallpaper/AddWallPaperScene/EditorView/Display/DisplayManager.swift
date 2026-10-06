@@ -31,7 +31,15 @@ enum DisplayManager {
             return (a, b)
         }
         return displayMode.map { mode, id in
-                .init(name: getDisplayName(for: id) ?? "Unknown", resolutionWidth: mode.height, resolutionHeight: mode.width)
+            
+            return .init(
+                name: getDisplayName(for: id) ?? "Unknown",
+                id: id,
+                resolutionWidth: mode.width,
+                resolutionHeight: mode.height,
+                origin:  CGDisplayBounds(id).origin,
+                isPrimary: CGDisplayIsMain(id) != 0
+            )
         }
     }
 

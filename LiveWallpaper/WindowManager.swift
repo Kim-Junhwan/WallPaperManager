@@ -7,7 +7,7 @@ class WindowManager: NSWindowController, NSWindowDelegate {
     convenience init() {
         let contentView = NSHostingView(rootView: ContentView()) // Your SwiftUI view
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: AppConstant.windowWidth, height: AppConstant.windowHeight),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
