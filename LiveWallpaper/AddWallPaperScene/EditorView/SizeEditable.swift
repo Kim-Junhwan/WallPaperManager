@@ -327,7 +327,7 @@ struct FrameMovableModifier: ViewModifier {
                 // 탭(선택)과 구분되도록 약간의 이동 거리 이후에 시작한다.
                 DragGesture(minimumDistance: 3, coordinateSpace: .global)
                     .onChanged { value in
-                        isSelected = true
+                        if !isSelected { isSelected = true }
                         let start = dragStartFrame ?? frame
                         dragStartFrame = start
                         var origin = CGPoint(x: start.minX + value.translation.width,
@@ -344,10 +344,12 @@ struct FrameMovableModifier: ViewModifier {
 }
 
 private extension View {
+    /// 선택 여부와 무관하게 같은 뷰 구조를 유지해야 한다.
+    /// (if/else로 분기하면 선택되는 순간 뷰가 교체되어 진행 중인 드래그 제스처가 끊긴다)
     @ViewBuilder
     func moveCursor(isActive: Bool) -> some View {
-        if #available(macOS 15, *), isActive {
-            self.pointerStyle(.grabIdle)
+        if #available(macOS 15, *) {
+            self.pointerStyle(isActive ? .grabIdle : nil)
         } else {
             self
         }
