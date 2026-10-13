@@ -48,14 +48,16 @@ struct EditorView: View {
     @ViewBuilder
     private func displayCanvasView(thumbnail: NSImage) -> some View {
         GeometryReader { proxy in
-            DisplayCanvasScrollView(contentSize: proxy.size) {
+            // 인스펙터 토글 등으로 뷰포트가 바뀌어도 캔버스 크기는 줄어들지 않고 고정된다.
+            let canvasSize = viewModel.canvasSize ?? proxy.size
+            DisplayCanvasScrollView(contentSize: canvasSize) {
                 ZStack {
                     Color(nsColor: .controlBackgroundColor)
                         .contentShape(Rectangle())
                         .onTapGesture { viewModel.isWallpaperSelected = false }
                     switch viewModel.displayMode {
                     case .single(let displayInfo):
-                        singleDisplayCanvas(proxy: proxy, thumbnail: thumbnail, display: displayInfo)
+                        singleDisplayCanvas(canvasSize: canvasSize, thumbnail: thumbnail, display: displayInfo)
                     case .perDisplay:
                         EmptyView()
                     case .spanAll:
@@ -65,25 +67,27 @@ struct EditorView: View {
                     }
                 }
             }
+            .onAppear { viewModel.expandCanvasSize(toFit: proxy.size) }
+            .onChange(of: proxy.size) { _, newSize in viewModel.expandCanvasSize(toFit: newSize) }
         }
     }
     
     @ViewBuilder
-    private func singleDisplayCanvas(proxy: GeometryProxy, thumbnail: NSImage, display: DisplayInfo) -> some View {
+    private func singleDisplayCanvas(canvasSize: CGSize, thumbnail: NSImage, display: DisplayInfo) -> some View {
         let displaySize = CGSize(
             width: display.resolutionWidth,
             height: display.resolutionHeight
         )
         
         let layout = SingleDisplayLayout.calculate(
-            editorSize: proxy.size,
+            editorSize: canvasSize,
             displaySize: displaySize,
             wallpaperSize: thumbnail.size
         )
         
         let defaultFrame = CGRect(
-            x: (proxy.size.width - layout.wallpaperSize.width) / 2,
-            y: (proxy.size.height - layout.wallpaperSize.height) / 2,
+            x: (canvasSize.width - layout.wallpaperSize.width) / 2,
+            y: (canvasSize.height - layout.wallpaperSize.height) / 2,
             width: layout.wallpaperSize.width,
             height: layout.wallpaperSize.height
         )

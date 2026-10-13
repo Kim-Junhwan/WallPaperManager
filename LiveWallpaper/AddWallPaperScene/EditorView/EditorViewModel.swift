@@ -60,10 +60,12 @@ final class EditorViewModel {
     var state: EditorState = .loading
     var displayInfo: [DisplayInfo] = []
     var displayMode: DisplayMode = .idle
-    var showInspector: Bool = true
+    var showInspector: Bool = false
     /// 사용자가 조절한 배경 이미지 frame (캔버스 좌표). nil이면 레이아웃 기본값(가운데 정렬)을 쓴다.
     var wallpaperFrame: CGRect?
     var isWallpaperSelected: Bool = false
+    /// 캔버스 레이아웃 기준 크기. 커지기만 하고 줄지 않아 인스펙터 토글 등에 영향받지 않는다.
+    private(set) var canvasSize: CGSize?
 
     init(asset: WallpaperAsset) {
         self.asset = asset
@@ -73,6 +75,16 @@ final class EditorViewModel {
     convenience init(state: EditorState, asset: WallpaperAsset) {
         self.init(asset: asset)
         self.state = state
+    }
+
+    /// 뷰포트 크기에 맞춰 캔버스를 키우기만 한다. (줄이지 않으므로 인스펙터 토글에 영향받지 않는다)
+    /// 인스펙터가 열린 동안에는 뷰포트가 그만큼 좁으므로 그 폭을 더해 닫힌 상태와 같은 기준으로 맞춘다.
+    func expandCanvasSize(toFit viewport: CGSize) {
+        guard viewport.width > 0, viewport.height > 0 else { return }
+        let width = viewport.width + (showInspector ? AppConstant.editorInspectorWidth : 0)
+        let current = canvasSize ?? .zero
+        let next = CGSize(width: max(current.width, width), height: max(current.height, viewport.height))
+        if next != current { canvasSize = next }
     }
 
     func prepareEditor() {
