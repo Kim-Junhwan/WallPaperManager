@@ -19,26 +19,24 @@ struct EditorView: View {
         case .loading:
             loadingView
         case .loaded(let thumbnail):
-            if let display = viewModel.displayInfo.first(where: { $0.isPrimary }) {
-                editorCanvas(thumbnail: thumbnail, display: display)
+           displayCanvasView(thumbnail: thumbnail)
+            .inspector(isPresented: $viewModel.showInspector) {
+                WallpaperInspectorView()
+                    .inspectorColumnWidth(
+                        min: AppConstant.editorInspectorWidthMin,
+                        ideal: AppConstant.editorInspectorWidth,
+                        max: AppConstant.editorInspectorWidthMax)
             }
-//            .inspector(isPresented: $viewModel.showInspector) {
-//                WallpaperInspectorView()
-//                    .inspectorColumnWidth(
-//                        min: AppConstant.editorInspectorWidthMin,
-//                        ideal: AppConstant.editorInspectorWidth,
-//                        max: AppConstant.editorInspectorWidthMax)
-//            }
-//            .toolbar {
-//                ToolbarItem {
-//                    Button {
-//                        viewModel.showInspector.toggle()
-//                    } label: {
-//                        Image(systemName: "sidebar.trailing")
-//                    }
-//                    
-//                }
-//            }
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        viewModel.showInspector.toggle()
+                    } label: {
+                        Image(systemName: "sidebar.trailing")
+                    }
+                    
+                }
+            }
         }
     }
     
@@ -47,49 +45,81 @@ struct EditorView: View {
             .tint(.blue)
     }
     
-    private func editorCanvas(
-            thumbnail: NSImage,
-            display: DisplayInfo
-        ) -> some View {
-            GeometryReader { proxy in
-                let displaySize = CGSize(
-                    width: display.resolutionWidth,
-                    height: display.resolutionHeight
-                )
-
-                let layout = SingleDisplayLayout.calculate(
-                    editorSize: proxy.size,
-                    displaySize: displaySize,
-                    wallpaperSize: thumbnail.size
-                )
-
+    @ViewBuilder
+    private func displayCanvasView(thumbnail: NSImage) -> some View {
+        GeometryReader { proxy in
+            DisplayCanvasScrollView(contentSize: proxy.size) {
                 ZStack {
                     Color(nsColor: .controlBackgroundColor)
-
-                    Image(nsImage: thumbnail)
-                        .resizable()
-                        .frame(
-                            width: layout.wallpaperSize.width,
-                            height: layout.wallpaperSize.height
-                        )
-
-                    RoundedRectangle(
-                        cornerRadius: 6,
-                        style: .continuous
-                    )
-                    .stroke(.white.opacity(0.7), lineWidth: 1)
-                    .frame(
-                        width: layout.displaySize.width,
-                        height: layout.displaySize.height
-                    )
-                    .allowsHitTesting(false)
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewModel.isWallpaperSelected = false }
+                    switch viewModel.displayMode {
+                    case .single(let displayInfo):
+                        singleDisplayCanvas(proxy: proxy, thumbnail: thumbnail, display: displayInfo)
+                    case .perDisplay:
+                        EmptyView()
+                    case .spanAll:
+                        EmptyView()
+                    case .idle:
+                        EmptyView()
+                    }
                 }
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity
-                )
             }
         }
+    }
+    
+    @ViewBuilder
+    private func singleDisplayCanvas(proxy: GeometryProxy, thumbnail: NSImage, display: DisplayInfo) -> some View {
+        let displaySize = CGSize(
+            width: display.resolutionWidth,
+            height: display.resolutionHeight
+        )
+        
+        let layout = SingleDisplayLayout.calculate(
+            editorSize: proxy.size,
+            displaySize: displaySize,
+            wallpaperSize: thumbnail.size
+        )
+        
+        let defaultFrame = CGRect(
+            x: (proxy.size.width - layout.wallpaperSize.width) / 2,
+            y: (proxy.size.height - layout.wallpaperSize.height) / 2,
+            width: layout.wallpaperSize.width,
+            height: layout.wallpaperSize.height
+        )
+        let wallpaperFrame = Binding(
+            get: { viewModel.wallpaperFrame ?? defaultFrame },
+            set: { viewModel.wallpaperFrame = $0 }
+        )
+        
+        ZStack {
+            Image(nsImage: thumbnail)
+                .resizable()
+                .frameMovable(
+                    frame: wallpaperFrame,
+                    isSelected: $viewModel.isWallpaperSelected
+                )
+                .sizeEditable(
+                    frame: wallpaperFrame,
+                    isSelected: $viewModel.isWallpaperSelected
+                )
+            
+            RoundedRectangle(
+                cornerRadius: 6,
+                style: .continuous
+            )
+            .stroke(.white.opacity(0.7), lineWidth: 1)
+            .frame(
+                width: layout.displaySize.width,
+                height: layout.displaySize.height
+            )
+            .allowsHitTesting(false)
+        }
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity
+        )
+    }
 }
 
 #Preview("Image Editor") {

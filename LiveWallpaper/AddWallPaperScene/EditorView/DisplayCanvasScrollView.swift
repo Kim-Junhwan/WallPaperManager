@@ -7,12 +7,45 @@
 
 import SwiftUI
 
-struct DisplayCanvasScrollView: View {
-    var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+struct DisplayCanvasScrollView<Content: View>: NSViewRepresentable {
+    let contentSize: CGSize
+    let content: () -> Content
+    
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.documentView = context.coordinator.hostingView
+        scrollView.hasHorizontalScroller = true
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        
+        scrollView.allowsMagnification = true
+        scrollView.minMagnification = 0.25
+        scrollView.maxMagnification = 4.0
+        
+        context.coordinator.hostingView.frame = NSRect(origin: .zero, size: contentSize)
+        return scrollView
     }
-}
-
-#Preview {
-    DisplayCanvasScrollView()
+    
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        let hostingView = context.coordinator.hostingView
+        
+        hostingView.rootView = content()
+        
+        if hostingView.frame.size != contentSize {
+            hostingView.setFrameSize(contentSize)
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(content: content())
+    }
+    
+    @MainActor
+    final class Coordinator {
+        let hostingView: NSHostingView<Content>
+        
+        init(content: Content) {
+            self.hostingView = NSHostingView(rootView: content)
+        }
+    }
 }

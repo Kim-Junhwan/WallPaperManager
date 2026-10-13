@@ -8,7 +8,8 @@
 import Foundation
 
 enum DisplayMode {
-    case single
+    case idle
+    case single(display: DisplayInfo)
     case perDisplay
     case spanAll
 }

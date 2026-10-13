@@ -59,8 +59,11 @@ final class EditorViewModel {
     
     var state: EditorState = .loading
     var displayInfo: [DisplayInfo] = []
-    var displayMode: DisplayMode = .single
+    var displayMode: DisplayMode = .idle
     var showInspector: Bool = true
+    /// 사용자가 조절한 배경 이미지 frame (캔버스 좌표). nil이면 레이아웃 기본값(가운데 정렬)을 쓴다.
+    var wallpaperFrame: CGRect?
+    var isWallpaperSelected: Bool = false
 
     init(asset: WallpaperAsset) {
         self.asset = asset
@@ -83,7 +86,7 @@ final class EditorViewModel {
 //            } else {
 //                displayMode = .perDisplay
 //            }
-            displayMode = .single
+            displayMode = .single(display: displayInfos.first!)
             state = .loaded(thumbnail)
         } catch {
 
