@@ -42,6 +42,33 @@ jobs:
                   Do not modify files.
                   Write the review in Korean."
 
+            - name: Post Codex Review to PR
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  GH_REPO: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+
+                  if [ ! -s review.txt ]; then
+                      echo "Review result is empty"
+                      exit 1
+                  fi
+
+                  {
+                      echo "## 🤖 Codex 자동 코드 리뷰"
+                      echo
+                      cat review.txt
+                      echo
+                      echo "---"
+                      echo "_Reviewed automatically by Codex_"
+                  } > pr-comment.md
+
+                  gh pr comment "$PR_NUMBER" \
+                      --repo "$GH_REPO" \
+                      --body-file pr-comment.md
+
             - name: Check Codex environment
               shell: bash
               run: |
