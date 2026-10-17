@@ -19,6 +19,10 @@ jobs:
                   fetch-depth: 0
                   persist-credentials: false
 
+            - name: Add Codex to PATH
+              shell: bash
+              run: echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+
             - name: Run Codex Review
               shell: bash
               env:
@@ -26,8 +30,6 @@ jobs:
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
                   set -euo pipefail
-
-                  export PATH="/opt/homebrew/bin:$PATH"
 
                   codex --version
                   codex login status
