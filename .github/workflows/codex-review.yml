@@ -1,9 +1,8 @@
-
 name: Codex PR Review
 
 on:
     pull_request:
-    types: [opened, synchronize, reopened]
+        types: [opened, synchronize, reopened]
 
 permissions:
     contents: read
@@ -11,52 +10,49 @@ permissions:
 
 jobs:
     review:
-    runs-on: [self-hosted, macOS]
-    
-    steps:
-        - name: Checkout PR
-        uses: actions/checkout@v4
-        with:
-            fetch-depth: 0
-            persist-credentials: false
+        runs-on: [self-hosted, macOS]
 
+        steps:
+            - name: Checkout PR
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
 
-- name: Run Codex Review
-    shell: bash
-    env:
-    BASE_SHA: ${{ github.event.pull_request.base.sha }}
-    HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-    run: |
-    set -euo pipefail
-    
-    export PATH="/opt/homebrew/bin:$PATH"
-    
-    codex --version
-    codex login status
-    
-    codex exec \
-        --sandbox read-only \
-        -o review.txt \
-      "Review changes between $BASE_SHA and $HEAD_SHA.
-      Focus on bugs, concurrency, and memory leaks.
-      Do not modify files.
-      Write the review in Korean."
-      
-      
-      - name: Check Codex environment
-          shell: bash
-      run: |
-          echo "Runner user: $(whoami)"
-          echo "HOME: $HOME"
-          command -v codex
-          codex --version
-          codex login status
-      
-      - name: Test Codex execution
-          shell: bash
-          run: |
-          codex exec \
-              --sandbox read-only \
-              --skip-git-repo-check \
-              "Reply with exactly: Codex CI OK"
+            - name: Run Codex Review
+              shell: bash
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  set -euo pipefail
 
+                  export PATH="/opt/homebrew/bin:$PATH"
+
+                  codex --version
+                  codex login status
+
+                  codex exec \
+                      --sandbox read-only \
+                      -o review.txt \
+                      "Review changes between $BASE_SHA and $HEAD_SHA.
+                  Focus on bugs, concurrency, and memory leaks.
+                  Do not modify files.
+                  Write the review in Korean."
+
+            - name: Check Codex environment
+              shell: bash
+              run: |
+                  echo "Runner user: $(whoami)"
+                  echo "HOME: $HOME"
+                  command -v codex
+                  codex --version
+                  codex login status
+
+            - name: Test Codex execution
+              shell: bash
+              run: |
+                  codex exec \
+                      --sandbox read-only \
+                      --skip-git-repo-check \
+                      "Reply with exactly: Codex CI OK"
