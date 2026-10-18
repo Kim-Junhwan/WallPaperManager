@@ -1,0 +1,154 @@
+name: Wiki Sync Test
+
+# LLM-Wiki 연동 파이프라인이 실제로 동작 가능한지 검증하는 테스트 워크플로.
+# 위키 레포에는 어떤 변경도 남기지 않는다 (임시 브랜치를 push 후 즉시 삭제).
+#
+# 필요한 Secrets:
+#   WIKI_PAT        Kim-Junhwan/LLM-Wiki 에 Contents: Read and write 권한을 가진 fine-grained PAT
+#   OPENAI_API_KEY  Codex CLI 인증용
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_codex:
+        description: Codex 스킬 인식 테스트 실행 (API 비용 발생)
+        type: boolean
+        default: true
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  WIKI_REPO: Kim-Junhwan/LLM-Wiki
+  WIKI_DIR: wiki
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: "1. Secrets 존재 확인"
+        env:
+          WIKI_PAT: ${{ secrets.WIKI_PAT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          fail=0
+          [ -n "$WIKI_PAT" ] && echo "✅ WIKI_PAT set" || { echo "❌ WIKI_PAT missing"; fail=1; }
+          [ -n "$OPENAI_API_KEY" ] && echo "✅ OPENAI_API_KEY set" || { echo "❌ OPENAI_API_KEY missing"; fail=1; }
+          exit $fail
+
+      - name: "2. 위키 레포 접근 확인 (API)"
+        env:
+          GH_TOKEN: ${{ secrets.WIKI_PAT }}
+        run: |
+          gh api "repos/$WIKI_REPO" --jq '"✅ repo: \(.full_name) private=\(.private) default=\(.default_branch)"'
+          perm=$(gh api "repos/$WIKI_REPO" --jq '.permissions | "push=\(.push) pull=\(.pull)"')
+          echo "permissions: $perm"
+          case "$perm" in *push=true*) echo "✅ push 권한 있음" ;; *) echo "❌ push 권한 없음"; exit 1 ;; esac
+
+      - name: "3. 위키 레포 checkout"
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.WIKI_REPO }}
+          token: ${{ secrets.WIKI_PAT }}
+          path: ${{ env.WIKI_DIR }}
+
+      - name: "4. 위키 구조·스킬 파일 검증"
+        working-directory: ${{ env.WIKI_DIR }}
+        run: |
+          fail=0
+          for f in AGENTS.md index.md log.md; do
+            [ -f "$f" ] && echo "✅ $f" || { echo "❌ $f 없음"; fail=1; }
+          done
+          for d in raw projects-wiki my-wiki; do
+            [ -d "$d" ] && echo "✅ $d/" || { echo "❌ $d/ 없음"; fail=1; }
+          done
+          # Codex는 .agents/skills/<name>/SKILL.md 를 스킬로 인식
+          for s in wiki-ingest wiki-commit wiki-lint wiki-query; do
+            f=".agents/skills/$s/SKILL.md"
+            if [ -f "$f" ] && head -1 "$f" | grep -q '^---$' && grep -q "^name: $s$" "$f"; then
+              echo "✅ skill $s (frontmatter OK)"
+            else
+              echo "❌ skill $s 누락 또는 frontmatter 불일치"; fail=1
+            fi
+          done
+          exit $fail
+
+      - name: "5. 임시 브랜치 push / 삭제 (쓰기 권한 실검증)"
+        working-directory: ${{ env.WIKI_DIR }}
+        run: |
+          branch="ci-connectivity-test/${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit --allow-empty -m "ci: connectivity test (will be deleted)"
+          git push origin "$branch"
+          echo "✅ push 성공"
+          git push origin --delete "$branch"
+          echo "✅ 임시 브랜치 삭제 완료"
+
+      - name: "6. 이 레포의 PR 컨텍스트 수집 확인"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 파이프라인에서 쓸 PR 메타/diff 수집이 되는지 최근 머지된 PR로 확인
+          n=$(gh pr list --repo "${{ github.repository }}" --state merged --limit 1 --json number --jq '.[0].number')
+          if [ -z "$n" ] || [ "$n" = "null" ]; then
+            echo "⚠️ 머지된 PR이 없어 건너뜀"; exit 0
+          fi
+          gh pr view "$n" --repo "${{ github.repository }}" --json number,title,body,url,files > /tmp/pr.json
+          gh pr diff "$n" --repo "${{ github.repository }}" > /tmp/pr.diff
+          echo "✅ PR #$n 수집: json $(wc -c < /tmp/pr.json)B, diff $(wc -c < /tmp/pr.diff)B"
+
+      - name: "7. Codex CLI 설치 및 로그인"
+        if: github.event_name != 'workflow_dispatch' || inputs.run_codex
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          npm i -g @openai/codex
+          codex --version
+          printenv OPENAI_API_KEY | codex login --with-api-key
+          codex login status
+
+      - name: "8. Codex 스킬 인식 테스트 (read-only)"
+        if: github.event_name != 'workflow_dispatch' || inputs.run_codex
+        working-directory: ${{ env.WIKI_DIR }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          codex exec --sandbox read-only \
+            -o /tmp/codex-skills.txt \
+            "현재 세션에서 사용 가능한 스킬 이름을 모두 나열해줘. 파일을 수정하지 마. 각 스킬을 한 줄(이름: 설명 요약)로만 답해."
+          echo "----- codex 응답 -----"
+          cat /tmp/codex-skills.txt
+          echo "----------------------"
+          fail=0
+          for s in wiki-ingest wiki-commit wiki-lint wiki-query; do
+            grep -q "$s" /tmp/codex-skills.txt && echo "✅ codex가 $s 인식" || { echo "❌ codex가 $s 미인식"; fail=1; }
+          done
+          exit $fail
+
+      - name: "9. Codex가 AGENTS.md 규약을 읽는지 확인"
+        if: github.event_name != 'workflow_dispatch' || inputs.run_codex
+        working-directory: ${{ env.WIKI_DIR }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          codex exec --sandbox read-only -o /tmp/codex-agents.txt \
+            "AGENTS.md 기준으로 raw/ 디렉토리에 대한 LLM 권한을 한 문장으로 답해. 파일을 수정하지 마."
+          cat /tmp/codex-agents.txt
+          grep -Eq "읽기|금지|불변|read" /tmp/codex-agents.txt \
+            && echo "✅ AGENTS.md 규약 반영" || { echo "❌ 규약 반영 불확실"; exit 1; }
+
+      - name: "10. 위키 레포 변경 없음 확인"
+        if: ${{ !cancelled() }}
+        working-directory: ${{ env.WIKI_DIR }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "✅ working tree clean (Codex가 파일을 수정하지 않음)"
+          else
+            echo "❌ 예상치 못한 변경:"; git status --short; exit 1
+          fi
