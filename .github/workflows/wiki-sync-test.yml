@@ -69,7 +69,8 @@ jobs:
           for f in AGENTS.md index.md log.md; do
             [ -f "$f" ] && echo "✅ $f" || { echo "❌ $f 없음"; fail=1; }
           done
-          for d in raw projects-wiki my-wiki; do
+          # raw/ 는 iCloud에서 별도 관리하므로 레포 구조 검증에서 제외
+          for d in projects-wiki my-wiki; do
             [ -d "$d" ] && echo "✅ $d/" || { echo "❌ $d/ 없음"; fail=1; }
           done
           # Codex는 .agents/skills/<name>/SKILL.md 를 스킬로 인식
