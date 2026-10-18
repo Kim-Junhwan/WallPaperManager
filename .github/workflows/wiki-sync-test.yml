@@ -5,7 +5,10 @@ name: Wiki Sync Test
 #
 # 필요한 Secrets:
 #   WIKI_PAT        Kim-Junhwan/LLM-Wiki 에 Contents: Read and write 권한을 가진 fine-grained PAT
-#   OPENAI_API_KEY  Codex CLI 인증용
+#
+# 셀프 호스트 러너 전제 조건 (러너 단말에서 미리 준비):
+#   - gh, git, codex CLI 설치
+#   - `codex login` 으로 ChatGPT 로그인 완료 (~/.codex/auth.json 유지)
 
 on:
   workflow_dispatch:
@@ -27,17 +30,20 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # 셀프 호스트 러너는 내 단말에서 코드가 실행되므로 포크 PR은 제외
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: self-hosted
     timeout-minutes: 15
     steps:
-      - name: "1. Secrets 존재 확인"
+      - name: "1. Secrets 및 러너 도구 확인"
         env:
           WIKI_PAT: ${{ secrets.WIKI_PAT }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           fail=0
           [ -n "$WIKI_PAT" ] && echo "✅ WIKI_PAT set" || { echo "❌ WIKI_PAT missing"; fail=1; }
-          [ -n "$OPENAI_API_KEY" ] && echo "✅ OPENAI_API_KEY set" || { echo "❌ OPENAI_API_KEY missing"; fail=1; }
+          for c in git gh node; do
+            command -v $c >/dev/null && echo "✅ $c: $(command -v $c)" || { echo "❌ $c 없음 (러너 PATH 확인)"; fail=1; }
+          done
           exit $fail
 
       - name: "2. 위키 레포 접근 확인 (API)"
@@ -99,48 +105,41 @@ jobs:
           if [ -z "$n" ] || [ "$n" = "null" ]; then
             echo "⚠️ 머지된 PR이 없어 건너뜀"; exit 0
           fi
-          gh pr view "$n" --repo "${{ github.repository }}" --json number,title,body,url,files > /tmp/pr.json
-          gh pr diff "$n" --repo "${{ github.repository }}" > /tmp/pr.diff
-          echo "✅ PR #$n 수집: json $(wc -c < /tmp/pr.json)B, diff $(wc -c < /tmp/pr.diff)B"
+          gh pr view "$n" --repo "${{ github.repository }}" --json number,title,body,url,files > $RUNNER_TEMP/pr.json
+          gh pr diff "$n" --repo "${{ github.repository }}" > $RUNNER_TEMP/pr.diff
+          echo "✅ PR #$n 수집: json $(wc -c < $RUNNER_TEMP/pr.json)B, diff $(wc -c < $RUNNER_TEMP/pr.diff)B"
 
-      - name: "7. Codex CLI 설치 및 로그인"
+      - name: "7. Codex CLI 및 로그인 상태 확인"
         if: github.event_name != 'workflow_dispatch' || inputs.run_codex
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          npm i -g @openai/codex
+          command -v codex >/dev/null || { echo "❌ codex 미설치 (러너 PATH 확인)"; exit 1; }
           codex --version
-          printenv OPENAI_API_KEY | codex login --with-api-key
-          codex login status
+          codex login status || { echo "❌ 러너 단말에서 codex login 필요"; exit 1; }
 
       - name: "8. Codex 스킬 인식 테스트 (read-only)"
         if: github.event_name != 'workflow_dispatch' || inputs.run_codex
         working-directory: ${{ env.WIKI_DIR }}
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           codex exec --sandbox read-only \
-            -o /tmp/codex-skills.txt \
+            -o $RUNNER_TEMP/codex-skills.txt \
             "현재 세션에서 사용 가능한 스킬 이름을 모두 나열해줘. 파일을 수정하지 마. 각 스킬을 한 줄(이름: 설명 요약)로만 답해."
           echo "----- codex 응답 -----"
-          cat /tmp/codex-skills.txt
+          cat $RUNNER_TEMP/codex-skills.txt
           echo "----------------------"
           fail=0
           for s in wiki-ingest wiki-commit wiki-lint wiki-query; do
-            grep -q "$s" /tmp/codex-skills.txt && echo "✅ codex가 $s 인식" || { echo "❌ codex가 $s 미인식"; fail=1; }
+            grep -q "$s" $RUNNER_TEMP/codex-skills.txt && echo "✅ codex가 $s 인식" || { echo "❌ codex가 $s 미인식"; fail=1; }
           done
           exit $fail
 
       - name: "9. Codex가 AGENTS.md 규약을 읽는지 확인"
         if: github.event_name != 'workflow_dispatch' || inputs.run_codex
         working-directory: ${{ env.WIKI_DIR }}
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          codex exec --sandbox read-only -o /tmp/codex-agents.txt \
+          codex exec --sandbox read-only -o $RUNNER_TEMP/codex-agents.txt \
             "AGENTS.md 기준으로 raw/ 디렉토리에 대한 LLM 권한을 한 문장으로 답해. 파일을 수정하지 마."
-          cat /tmp/codex-agents.txt
-          grep -Eq "읽기|금지|불변|read" /tmp/codex-agents.txt \
+          cat $RUNNER_TEMP/codex-agents.txt
+          grep -Eq "읽기|금지|불변|read" $RUNNER_TEMP/codex-agents.txt \
             && echo "✅ AGENTS.md 규약 반영" || { echo "❌ 규약 반영 불확실"; exit 1; }
 
       - name: "10. 위키 레포 변경 없음 확인"
