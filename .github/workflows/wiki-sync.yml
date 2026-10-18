@@ -95,7 +95,7 @@ jobs:
           cat "$RUNNER_TEMP/pr.json" >> "$RUNNER_TEMP/sync-prompt.txt"
           printf '\n\n## PR diff (앞 80000바이트)\n' >> "$RUNNER_TEMP/sync-prompt.txt"
           head -c 80000 "$RUNNER_TEMP/pr.diff" >> "$RUNNER_TEMP/sync-prompt.txt"
-          codex exec --sandbox workspace-write -o "$RUNNER_TEMP/sync-result.md" - < "$RUNNER_TEMP/sync-prompt.txt"
+          codex exec --sandbox workspace-write -c model_reasoning_effort="medium" -o "$RUNNER_TEMP/sync-result.md" - < "$RUNNER_TEMP/sync-prompt.txt"
           echo "----- Codex 결과 -----"
           cat "$RUNNER_TEMP/sync-result.md"
 
