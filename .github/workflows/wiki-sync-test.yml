@@ -102,7 +102,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # 파이프라인에서 쓸 PR 메타/diff 수집이 되는지 최근 머지된 PR로 확인
-          n=$(gh pr list --repo "${{ github.repository }}" --state merged --limit 1 --json number --jq '.[0].number')
+          # PR 이벤트면 해당 PR, 수동 실행이면 최근 머지된 PR
+          n="${{ github.event.pull_request.number }}"
+          [ -n "$n" ] || n=$(gh pr list --repo "${{ github.repository }}" --state merged --limit 1 --json number --jq '.[0].number')
           if [ -z "$n" ] || [ "$n" = "null" ]; then
             echo "⚠️ 머지된 PR이 없어 건너뜀"; exit 0
           fi
@@ -143,7 +145,41 @@ jobs:
           grep -Eq "읽기|금지|불변|read" $RUNNER_TEMP/codex-agents.txt \
             && echo "✅ AGENTS.md 규약 반영" || { echo "❌ 규약 반영 불확실"; exit 1; }
 
-      - name: "10. 위키 레포 변경 없음 확인"
+      - name: "10. Ingest 계획 출력 (dry-run, 위키 수정 없음)"
+        if: github.event_name != 'workflow_dispatch' || inputs.run_codex
+        working-directory: ${{ env.WIKI_DIR }}
+        run: |
+          if [ ! -s "$RUNNER_TEMP/pr.json" ]; then
+            echo "⚠️ PR 컨텍스트가 없어 건너뜀"; exit 0
+          fi
+          cat > "$RUNNER_TEMP/ingest-prompt.txt" <<'EOF'
+          이 위키의 .agents/skills/wiki-ingest/SKILL.md 와 AGENTS.md 규약을 읽고,
+          아래 PR을 위키에 ingest한다면 어떻게 할지 "계획만" 출력해. 파일을 생성·수정하지 마.
+          CI(비대화형)이고 raw/ 디렉토리는 이 환경에 없다. 사용자 합의가 필요한 단계는 합의 필요 항목으로만 적어.
+
+          출력 형식:
+          1. 자료 타입 / category
+          2. 생성할 노트: 경로, 제목, frontmatter 초안, 본문 목차
+          3. 갱신할 기존 페이지와 변경 요지 (페이지 타입별 권한 차등 고려)
+          4. index / log 에 추가할 항목 초안
+          5. 이 환경(raw/ 없음, 비대화형)에서 건너뛰거나 변형할 단계
+          6. 사용자 합의가 필요한 항목
+
+          ## PR 메타
+          EOF
+          cat "$RUNNER_TEMP/pr.json" >> "$RUNNER_TEMP/ingest-prompt.txt"
+          printf '\n\n## PR diff (앞 60000바이트)\n' >> "$RUNNER_TEMP/ingest-prompt.txt"
+          head -c 60000 "$RUNNER_TEMP/pr.diff" >> "$RUNNER_TEMP/ingest-prompt.txt"
+          codex exec --sandbox read-only -o "$RUNNER_TEMP/ingest-plan.md" - < "$RUNNER_TEMP/ingest-prompt.txt"
+          echo "----- Ingest 계획 -----"
+          cat "$RUNNER_TEMP/ingest-plan.md"
+          {
+            echo "## Ingest 계획 (dry-run)"
+            echo
+            cat "$RUNNER_TEMP/ingest-plan.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "11. 위키 레포 변경 없음 확인"
         if: ${{ !cancelled() }}
         working-directory: ${{ env.WIKI_DIR }}
         run: |
