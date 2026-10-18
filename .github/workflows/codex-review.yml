@@ -1,0 +1,87 @@
+name: Codex PR Review
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened]
+
+permissions:
+    contents: read
+    pull-requests: write
+
+jobs:
+    review:
+        runs-on: [self-hosted, macOS]
+
+        steps:
+            - name: Checkout PR
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Add Codex to PATH
+              shell: bash
+              run: echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+
+            - name: Run Codex Review
+              shell: bash
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  set -euo pipefail
+
+                  codex --version
+                  codex login status
+
+                  codex exec \
+                      --sandbox read-only \
+                      -o review.txt \
+                      "Review changes between $BASE_SHA and $HEAD_SHA.
+                  Focus on bugs, concurrency, and memory leaks.
+                  Do not modify files.
+                  Write the review in Korean."
+
+            - name: Post Codex Review to PR
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  GH_REPO: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+
+                  if [ ! -s review.txt ]; then
+                      echo "Review result is empty"
+                      exit 1
+                  fi
+
+                  {
+                      echo "## 🤖 Codex 자동 코드 리뷰"
+                      echo
+                      cat review.txt
+                      echo
+                      echo "---"
+                      echo "_Reviewed automatically by Codex_"
+                  } > pr-comment.md
+
+                  gh pr comment "$PR_NUMBER" \
+                      --repo "$GH_REPO" \
+                      --body-file pr-comment.md
+
+            - name: Check Codex environment
+              shell: bash
+              run: |
+                  echo "Runner user: $(whoami)"
+                  echo "HOME: $HOME"
+                  command -v codex
+                  codex --version
+                  codex login status
+
+            - name: Test Codex execution
+              shell: bash
+              run: |
+                  codex exec \
+                      --sandbox read-only \
+                      --skip-git-repo-check \
+                      "Reply with exactly: Codex CI OK"
