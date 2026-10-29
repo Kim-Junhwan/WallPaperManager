@@ -7,6 +7,22 @@
 
 import SwiftUI
 
+// MARK: - Canvas Space
+
+/// 에디터 캔버스(확대/스크롤되는 영역 안쪽)의 좌표계.
+/// 확대는 `scaleEffect`로 처리되므로, 이 좌표계로 읽은 드래그 translation은 확대 배율과 무관한 캔버스 단위가 된다.
+/// `.global`은 윈도우 기준이라 배율이 반영되지 않고, `.local`은 핸들이 움직이면 기준이 같이 흔들린다.
+/// 이 좌표계를 쓰는 modifier의 조상 중 하나에 `.canvasCoordinateSpace()`가 있어야 한다.
+enum CanvasSpace {
+    static let name = "canvas"
+}
+
+extension View {
+    func canvasCoordinateSpace() -> some View {
+        coordinateSpace(name: CanvasSpace.name)
+    }
+}
+
 // MARK: - Handle
 
 private enum Axis { case x, y }
@@ -198,8 +214,8 @@ struct SizeEditableModifier: ViewModifier {
     }
 
     private func dragGesture(_ handle: ResizeHandle) -> some Gesture {
-        // 핸들 자체가 움직이므로 로컬 좌표 대신 global 좌표의 translation을 쓴다.
-        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+        // 핸들 자체가 움직이므로 로컬 좌표 대신, 움직이지 않는 캔버스 좌표계의 translation을 쓴다.
+        DragGesture(minimumDistance: 0, coordinateSpace: .named(CanvasSpace.name))
             .onChanged { value in
                 let start = dragStartFrame ?? frame
                 dragStartFrame = start
@@ -286,6 +302,7 @@ struct ResizableView<Content: View>: View {
                                   minSize: minSize,
                                   bounds: CGRect(origin: .zero, size: geo.size))
             }
+            .canvasCoordinateSpace()
         }
     }
 }
@@ -325,7 +342,7 @@ struct FrameMovableModifier: ViewModifier {
             .moveCursor(isActive: isSelected)
             .gesture(
                 // 탭(선택)과 구분되도록 약간의 이동 거리 이후에 시작한다.
-                DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                DragGesture(minimumDistance: 3, coordinateSpace: .named(CanvasSpace.name))
                     .onChanged { value in
                         if !isSelected { isSelected = true }
                         let start = dragStartFrame ?? frame
