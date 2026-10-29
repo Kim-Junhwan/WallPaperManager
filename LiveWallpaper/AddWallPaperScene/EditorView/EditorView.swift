@@ -66,6 +66,7 @@ struct EditorView: View {
                         EmptyView()
                     }
                 }
+                .canvasCoordinateSpace()
             }
             .onAppear { viewModel.expandCanvasSize(toFit: proxy.size) }
             .onChange(of: proxy.size) { _, newSize in viewModel.expandCanvasSize(toFit: newSize) }
